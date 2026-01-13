@@ -1,68 +1,175 @@
 # 🚀 Scalable Event-Driven Activity Logger
 
-![Node.js](https://img.shields.io/badge/Node.js-v18-green) ![Kubernetes](https://img.shields.io/badge/Kubernetes-K3s-blue) ![Kafka](https://img.shields.io/badge/Kafka-Confluent-orange) ![MongoDB](https://img.shields.io/badge/MongoDB-Atlas-green) ![Docker](https://img.shields.io/badge/Docker-Enabled-blue)
+    
 
-A cloud-native microservices application designed to ingest, stream, and store user activity logs at scale. This project demonstrates an **Event-Driven Architecture** using **Apache Kafka** to decouple high-throughput log ingestion from storage operations.
+A cloud-native **microservices-based logging platform** designed to ingest, stream, and persist user activity logs at scale. The system follows an **Event-Driven Architecture (EDA)** using **Apache Kafka** to decouple high-throughput ingestion from storage, ensuring reliability, scalability, and responsiveness under load.
 
 ---
 
 ## 🌐 Live Demo
-The application is currently deployed on an **AWS EC2** instance running a K3s Kubernetes cluster.
 
-> **Base URL:** [http://54.173.192.160/api/logs](http://54.173.192.160/api/logs)
->
-> *Note: Viewing the link in a browser performs a GET request, which retrieves stored logs. To create new logs, use the POST method (see Usage below).*
+The application is deployed on an **AWS EC2** instance running a **K3s Kubernetes cluster**.
+
+* **Base URL:** [http://54.173.192.160/api/logs](http://54.173.192.160/api/logs)
+
+> ℹ️ Accessing the URL via a browser triggers a `GET` request that retrieves stored logs. To create new log events, use the `POST` method as shown below.
 
 ---
 
 ## 🏗 System Architecture
 
-The system follows a **Producer-Consumer** pattern to ensure the API remains responsive even under heavy load.
+The platform uses a **Producer–Consumer** model to keep the API responsive while handling high write volumes.
 
 ```mermaid
 graph LR
-    User(Client) -->|POST /logs| API[API Service]
+    User[Client] -->|POST /api/logs| API[Ingestion API]
     API -->|Produce Event| Kafka[Confluent Cloud Kafka]
     Kafka -->|Consume Event| Worker[Consumer Worker]
-    Worker -->|Save Document| DB[(MongoDB Atlas)]
-    User -.->|GET /logs| API
-    API -.->|Query| DB
-Key Components:Ingestion Service (API): A lightweight Node.js/Express REST API. It accepts requests and immediately offloads them to Kafka.Message Broker (Kafka): Acts as a durable buffer, ensuring no logs are lost if the database is temporarily slow or down.Processing Service (Consumer): A dedicated worker that reads from Kafka and handles the I/O intensive task of writing to MongoDB.Storage (MongoDB): Cloud-native document storage for flexible log schemas.📂 Project StructureBash├── src/
-│   ├── config/         # Database and Kafka configuration
-│   ├── interfaces/     # HTTP Routes and Server logic
-│   ├── services/       # Business logic (Producer/Consumer)
-│   └── app.js          # Entry point
-├── k8s/                # Kubernetes Manifests (Deployment, Service, Ingress)
-├── k8s-secrets.example.yaml # Template for security credentials
-├── Dockerfile          # Container definition
-└── README.md           # Documentation
-🛠️ Setup & InstallationPrerequisitesNode.js v18+Docker & Kubectl (for cluster deployment)Access to MongoDB Atlas & Confluent Cloud (Kafka)1. Security Configuration (Crucial)Sensitive credentials are not included in this repository.To run the project, duplicate the example secret file and add your credentials:Bashcp k8s-secrets.example.yaml k8s-secrets.yaml
-Edit k8s-secrets.yaml with your actual connection strings and API keys.2. Run Locally (Docker)You can run the full stack locally using Docker.Bash# Build the image
+    Worker -->|Persist Document| DB[(MongoDB Atlas)]
+    User -.->|GET /api/logs| API
+    API -.->|Query Logs| DB
+```
+
+### Key Components
+
+* **Ingestion Service (API):**
+  A lightweight Node.js (Express) REST API that validates requests and immediately publishes events to Kafka.
+
+* **Message Broker (Kafka):**
+  Acts as a durable, scalable buffer that absorbs traffic spikes and guarantees message delivery even if downstream services are slow or temporarily unavailable.
+
+* **Processing Service (Consumer Worker):**
+  A dedicated service that consumes events from Kafka and performs I/O‑intensive operations such as writing logs to MongoDB.
+
+* **Storage Layer (MongoDB Atlas):**
+  Cloud-native document database used to store flexible, schema-less activity logs.
+
+---
+
+## 📂 Project Structure
+
+```bash
+├── src/
+│   ├── config/              # Kafka & MongoDB configuration
+│   ├── interfaces/          # HTTP routes and server setup
+│   ├── services/            # Producer & Consumer business logic
+│   └── app.js               # Application entry point
+├── k8s/                     # Kubernetes manifests (Deployment, Service, Ingress)
+├── k8s-secrets.example.yaml # Secrets template (no real credentials)
+├── Dockerfile               # Container definition
+└── README.md                # Documentation
+```
+
+---
+
+## 🛠️ Setup & Installation
+
+### Prerequisites
+
+* Node.js v18+
+* Docker
+* kubectl (for Kubernetes deployment)
+* MongoDB Atlas account
+* Confluent Cloud (Kafka) account
+
+---
+
+### 1. Security Configuration (Required)
+
+Sensitive credentials are intentionally excluded from the repository.
+
+Create a secrets file from the provided template:
+
+```bash
+cp k8s-secrets.example.yaml k8s-secrets.yaml
+```
+
+Update `k8s-secrets.yaml` with your actual MongoDB and Kafka credentials.
+
+---
+
+### 2. Run Locally with Docker
+
+```bash
+# Build the image
 docker build -t activity-log-app .
 
-# Run the container (ensure env vars are passed or use a .env file)
+# Run the container (pass environment variables or use a .env file)
 docker run -p 3000:3000 activity-log-app
-3. Deploy to KubernetesThis project is optimized for Kubernetes (tested on K3s).Bash# 1. Apply Secrets (Ensure k8s-secrets.yaml is created first)
+```
+
+The API will be available at `http://localhost:3000/api/logs`.
+
+---
+
+### 3. Deploy to Kubernetes (K3s)
+
+```bash
+# Apply secrets (ensure k8s-secrets.yaml exists)
 kubectl apply -f k8s-secrets.yaml
 
-# 2. Deploy Microservices & Ingress
-kubectl apply -f deployment.yaml
-kubectl apply -f service.yaml
-kubectl apply -f ingress.yaml
+# Deploy application components
+kubectl apply -f k8s/deployment.yaml
+kubectl apply -f k8s/service.yaml
+kubectl apply -f k8s/ingress.yaml
 
-# 3. Verify Deployment
+# Verify deployment
 kubectl get pods -w
-📡 API Usage1. Create a Log (Producer)Send a log entry to the system. It will be queued in Kafka immediately.Request:Bashcurl -X POST [http://54.173.192.160/api/logs](http://54.173.192.160/api/logs) \
+```
+
+---
+
+## 📡 API Usage
+
+### 1. Create a Log Event (Producer)
+
+Queues a new activity log event in Kafka.
+
+**Request:**
+
+```bash
+curl -X POST http://54.173.192.160/api/logs \
   -H "Content-Type: application/json" \
-  -d '{"userId": "12345", "action": "User_Login", "metadata": {"ip": "192.168.1.1"}}'
-Response:JSON{
+  -d '{"userId":"12345","action":"User_Login","metadata":{"ip":"192.168.1.1"}}'
+```
+
+**Response:**
+
+```json
+{
   "status": "Logged",
   "traceId": "a1b2c3d4",
   "message": "Event queued successfully"
 }
-2. Retrieve Logs (Read)Fetch the history of processed logs from MongoDB.Request:Bashcurl -X GET [http://54.173.192.160/api/logs](http://54.173.192.160/api/logs)
-🧠 Design Decisions & Trade-offsDecisionReasonWhy Kafka?To decouple the API from the Database. If MongoDB slows down during peak traffic, the API remains fast because it only talks to Kafka.Why Microservices?Scaling the Consumer (Worker) independently from the API. We can run 1 API pod and 5 Workers if write-volume is high.Why Kubernetes?Provides self-healing (restarts crashed pods) and easy secrets management compared to raw VM scripts.SecuritySecrets are injected via K8s environment variables, keeping them out of the source code image.
+```
 
-🚀 Future Improvements
-- CI/CD Pipeline: Implement GitHub Actions to auto-deploy on push.
-- Monitoring: Add Prometheus/Grafana to visualize Kafka lag and API latency.
+---
+
+### 2. Retrieve Logs (Read)
+
+Fetches processed logs stored in MongoDB.
+
+```bash
+curl -X GET http://54.173.192.160/api/logs
+```
+
+---
+
+## 🧠 Design Decisions & Trade-offs
+
+| Decision            | Rationale                                                                                               |
+| ------------------- | ------------------------------------------------------------------------------------------------------- |
+| **Kafka**           | Decouples ingestion from persistence, keeping the API fast during traffic spikes or database slowdowns. |
+| **Microservices**   | Allows independent scaling (e.g., multiple consumers with a single API instance).                       |
+| **Kubernetes**      | Provides self-healing, horizontal scaling, and secure secret management.                                |
+| **MongoDB**         | Flexible schema fits diverse activity log structures.                                                   |
+| **Secrets via K8s** | Prevents credential leakage and keeps images environment-agnostic.                                      |
+
+---
+
+## 🚀 Future Improvements
+
+* **CI/CD Pipeline:** GitHub Actions for automated build, test, and deployment.
+* **Observability:** Prometheus & Grafana for API latency, Kafka consumer lag, and throughput metrics.
+
+##
