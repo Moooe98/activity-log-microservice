@@ -1,0 +1,44 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: activity-log-api
+spec:
+  replicas: 1  
+  selector:
+    matchLabels:
+      app: activity-log
+  template:
+    metadata:
+      labels:
+        app: activity-log
+    spec:
+      containers:
+      - name: api
+        image: moooe98/activity-log-app:latest  
+        ports:
+        - containerPort: 3000
+        envFrom:
+        - secretRef:
+            name: app-secrets
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: activity-log-consumer
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: log-worker
+  template:
+    metadata:
+      labels:
+        app: log-worker
+    spec:
+      containers:
+      - name: consumer
+        image: moooe98/activity-log-app:latest 
+        command: ["node", "src/infrastructure/consumer.js"] 
+        envFrom:
+        - secretRef:
+            name: app-secrets
